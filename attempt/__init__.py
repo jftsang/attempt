@@ -63,7 +63,7 @@ class Attempted(Generic[_T]):
         if self:
             return Attempt(fn)(self.value)
         else:
-            assert self.value is None
+            assert self._value is None
             return self
 
     def flatmap(self, fn: Callable[[_T | None], "Attempted[_U]"]) -> "Attempted[_T | _U]":
@@ -94,7 +94,7 @@ class IterAttempted(Iterable[Attempted[_T]]):
 
     def map(self, fn: Callable[[_T], _U]) -> "IterAttempted[_T | _U]":
         """Attempt to apply `fn` to each element in this iterable."""
-        return IterAttempted(map(lambda x: x.map(fn), self))
+        return self.__class__(map(lambda x: x.map(fn), self))
 
     def filter(self) -> "IterAttempted[_T]":
         """Keep only those elements in this iterable that are `True`,
