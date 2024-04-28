@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "trying"
+name = "attempt"
 version = "0.1.0"
 description = ""
 authors = ["J. M. F. Tsang <j.m.f.tsang@cantab.net>"]

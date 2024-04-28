@@ -44,7 +44,7 @@ class TestAttempted(unittest.TestCase):
 class TestAttempt(unittest.TestCase):
     def test_attempt(self):
         def fn(x: int | str) -> int:
-            return x + 1  # raises if x is str
+            return x + 1  # pyre-ignore[58] raises if x is str
 
         t1 = Attempt(fn)(1)
         self.assertTrue(t1)

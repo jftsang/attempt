@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from functools import wraps
-from typing import Callable, Generic, Iterable, Optional, ParamSpec, Type, TypeVar
+from typing import Callable, Final, Generic, Iterable, ParamSpec, Type, TypeVar
 
 _P = ParamSpec("_P")
-_T = TypeVar("_T")
-_U = TypeVar("_U")
+_T = TypeVar("_T", covariant=True)
+_U = TypeVar("_U", covariant=True)
 
 
 class Attempted(Generic[_T]):
@@ -15,17 +17,17 @@ class Attempted(Generic[_T]):
     more like a `Future` (and might better be called `Past`).
     """
 
-    def __init__(self, value: _T, exception: Optional[Exception]) -> None:
-        self._value: _T = value
-        self._exception: Exception = exception
+    def __init__(self, value: _T | None, exception: Exception | None) -> None:
+        self._value: Final[_T | None] = value
+        self._exception: Final[Exception | None] = exception
 
     @classmethod
-    def of(cls, value: _T) -> "Attempted[_T]":
+    def of(cls, value: _T) -> "Attempted[_T]":  # pyre-ignore[46]
         return cls(value, None)
 
     @classmethod
-    def of_exception(cls, exception: Exception) -> "Attempted[_T]":
-        return cls(None, exception)
+    def of_exception(cls, exception: Exception) -> "Attempted[None]":
+        return cls(None, exception)  # pyre-ignore[7]
 
     def __repr__(self):
         if self:
@@ -40,20 +42,20 @@ class Attempted(Generic[_T]):
             return f"Attempted.of_exception({self.exception!s})"
 
     @property
-    def value(self) -> _T:
+    def value(self) -> _T | None:
         if self.exception is not None:
             raise self.exception
 
         return self._value
 
     @property
-    def exception(self) -> Exception:
+    def exception(self) -> Exception | None:
         return self._exception
 
     def __bool__(self):
         return self.exception is None
 
-    def map(self, fn: Callable[[_T], _U]) -> "Attempted[_U]":
+    def map(self, fn: Callable[[_T], _U]) -> "Attempted[_T | _U]":
         """If this `Attempted` contains a value, then try to apply `fn`
         to that value. If an exception is present, then keep the current
         exception.
@@ -61,9 +63,10 @@ class Attempted(Generic[_T]):
         if self:
             return Attempt(fn)(self.value)
         else:
+            assert self.value is None
             return self
 
-    def flatmap(self, fn: Callable[[_T], "Attempted[_U]"]) -> "Attempted[_U]":
+    def flatmap(self, fn: Callable[[_T | None], "Attempted[_U]"]) -> "Attempted[_T | _U]":
         """Similar to `map`, but fn is now an `Attempt`, i.e. it already
         returns an `Attempted`.
         """
@@ -78,7 +81,7 @@ class IterAttempted(Iterable[Attempted[_T]]):
     mapping and filtering.
     """
 
-    def __init__(self, iterable: Iterable[_T]):
+    def __init__(self, iterable: Iterable[Attempted[_T]]):
         self._iterable = iterable
 
     @classmethod
@@ -89,9 +92,9 @@ class IterAttempted(Iterable[Attempted[_T]]):
         for x in self._iterable:
             yield x
 
-    def map(self, fn: Callable[[_T], _U]) -> "IterAttempted[_U]":
+    def map(self, fn: Callable[[_T], _U]) -> "IterAttempted[_T | _U]":
         """Attempt to apply `fn` to each element in this iterable."""
-        return self.__class__(map(lambda x: x.map(fn), self))
+        return IterAttempted(map(lambda x: x.map(fn), self))
 
     def filter(self) -> "IterAttempted[_T]":
         """Keep only those elements in this iterable that are `True`,
@@ -114,10 +117,10 @@ class IterAttempted(Iterable[Attempted[_T]]):
                     raise t.exception
 
 
-class Attempt(Callable[_P, Attempted[_T]]):
+class Attempt:  # Callable[_P, Attempted[_T]]
     def __init__(self, fn: Callable[_P, _T], *exc_types: Type[Exception]):
         if not exc_types:
-            exc_types = Exception
+            exc_types = (Exception,)
         self._exc_types = exc_types
 
         @wraps(fn)
