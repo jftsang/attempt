@@ -1,5 +1,4 @@
 from functools import wraps
-from itertools import starmap
 from typing import Callable, Generic, Iterable, Optional, ParamSpec, Type, TypeVar
 
 _P = ParamSpec("_P")
@@ -75,8 +74,8 @@ class Attempted(Generic[_T]):
 
 
 class IterAttempted(Iterable[Attempted[_T]]):
-    """An iterable class that provides some methods for mapping,
-    filtering and collecting.
+    """A stream of `Attempted` objects. This class provides methods for
+    mapping and filtering.
     """
 
     def __init__(self, iterable: Iterable[_T]):
@@ -93,6 +92,12 @@ class IterAttempted(Iterable[Attempted[_T]]):
     def map(self, fn: Callable[[_T], _U]) -> "IterAttempted[_U]":
         """Attempt to apply `fn` to each element in this iterable."""
         return self.__class__(map(lambda x: x.map(fn), self))
+
+    def filter(self) -> "IterAttempted[_T]":
+        """Keep only those elements in this iterable that are `True`,
+        i.e. do not have an exception value.
+        """
+        return self.__class__(filter(bool, self))
 
     def values(self, ignore_failures: bool = False) -> Iterable[_T]:
         """Yields the values contained in the `Attempted` objects in this
@@ -126,9 +131,3 @@ class Attempt(Callable[_P, Attempted[_T]]):
 
     def __call__(self, *args, **kwargs):
         return self._fn(*args, **kwargs)
-
-    def map(self, iterable, *iterables) -> IterAttempted[_T]:
-        return IterAttempted(map(self, iterable, *iterables))
-
-    def starmap(self, iterable) -> IterAttempted[_T]:
-        return IterAttempted(starmap(self, iterable))
